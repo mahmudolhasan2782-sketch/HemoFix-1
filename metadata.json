@@ -1,0 +1,8 @@
+{
+  "name": "HemoFix",
+  "description": "An advanced, self-learning error resolution platform powered by Gemini AI. Upload screenshots or paste code to get instant, step-by-step solutions in Bengali or English.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
