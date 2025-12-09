@@ -1,13 +1,42 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
-// Initialize the API client
-// We safely handle the absence of an API key for Demo/Deployment purposes.
-const apiKey = process.env.API_KEY;
+// SAFE API KEY RETRIEVAL
+// This function prevents the "process is not defined" error which causes white screens
+const getApiKey = (): string | undefined => {
+  try {
+    // 1. Try Vite environment variables (Common for React on Vercel)
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+      // @ts-ignore
+      return import.meta.env.VITE_API_KEY;
+    }
+    
+    // 2. Try Standard Process environment (Create React App / Next.js)
+    if (typeof process !== 'undefined' && process.env) {
+       // Check for standard names
+       return process.env.REACT_APP_API_KEY || process.env.API_KEY;
+    }
+  } catch (e) {
+    // If accessing these fails, just return undefined (Demo Mode)
+    console.warn("Environment access failed, switching to Demo Mode");
+  }
+  return undefined;
+};
+
+const apiKey = getApiKey();
+// Force demo mode if no key is found
 const isDemoMode = !apiKey || apiKey.length === 0;
 
 let ai: GoogleGenAI | null = null;
+
+// Only initialize if we have a valid key
 if (!isDemoMode && apiKey) {
-  ai = new GoogleGenAI({ apiKey: apiKey });
+  try {
+    ai = new GoogleGenAI({ apiKey: apiKey });
+  } catch (error) {
+    console.error("Failed to initialize Gemini Client:", error);
+    // Fallback to demo mode if initialization fails
+  }
 }
 
 const MODEL_NAME = 'gemini-2.5-flash';
@@ -31,29 +60,28 @@ export const sendMessageToGemini = async (
   base64Image?: string,
   mimeType: string = 'image/png'
 ): Promise<string> => {
-  // DEMO MODE HANDLING: Allows deployment without crashing if no key is provided
+  
+  // DEMO MODE / SAFETY CHECK
   if (isDemoMode || !ai) {
     // Simulate network delay for realism
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    return `### ⚠️ ডেমো মোড সক্রিয়
+    return `### ⚠️ ডেমো মোড সক্রিয় (Vercel Deployment)
 
-দুঃখিত, বর্তমানে সিস্টেমে **Gemini API Key** কনফিগার করা নেই, তাই আমি লাইভ এআই উত্তর দিতে পারছি না। তবে আপনার অ্যাপটি সফলভাবে ডিপ্লয় হয়েছে! 🎉
+আপনার ওয়েবসাইটটি **সফলভাবে ডিপ্লয়** হয়েছে! 🎉 এখন আপনি কোনো এরর ছাড়াই সাইটটি দেখতে পাচ্ছেন।
+
+**বর্তমানে এটি ডেমো মোডে আছে কারণ:**
+আপনার Vercel প্রজেক্টে এখনো \`API_KEY\` সেট করা হয়নি।
 
 **কিভাবে লাইভ করবেন?**
 1. Vercel ড্যাশবোর্ডে যান।
 2. Settings > Environment Variables-এ যান।
-3. **Key:** \`API_KEY\` এবং **Value:** [আপনার Gemini API Key] দিয়ে সেভ করুন।
-4. এরপর নতুন করে ডিপ্লয় করলে এটি কাজ করবে।
+3. **Key:** \`VITE_API_KEY\` (অথবা \`REACT_APP_API_KEY\`)
+4. **Value:** [আপনার Gemini API Key]
+5. Save করে নতুন ডিপ্লয়মেন্ট দিন।
 
-**নমুনা সমাধান (ডেমো):**
-আপনার ইনপুট বিশ্লেষণ করে মনে হচ্ছে এটি একটি সাধারণ কনফিগারেশন ত্রুটি।
-\`\`\`javascript
-// উদাহরণ কোড
-const app = "HemoFix Running Successfully!";
-console.log(app);
-\`\`\`
-`;
+**নমুনা উত্তর (ডেমো):**
+আমি আপনার ইনপুট পেয়েছি: "${prompt.substring(0, 20)}..."। এটি ঠিক করার জন্য কোডটি চেক করুন।`;
   }
 
   try {
@@ -61,7 +89,6 @@ console.log(app);
     
     // Add image if present
     if (base64Image) {
-      // Remove data URL prefix if present for the API call
       const base64Data = base64Image.split(',')[1] || base64Image;
       parts.push({
         inlineData: {
@@ -81,28 +108,27 @@ console.log(app);
       },
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.7, // Balance between creativity and precision
+        temperature: 0.7,
       }
     });
 
-    return response.text || "দুঃখিত, আমি এই মুহূর্তে উত্তর দিতে পারছি না। অনুগ্রহ করে আবার চেষ্টা করুন।";
+    return response.text || "দুঃখিত, আমি এই মুহূর্তে উত্তর দিতে পারছি না।";
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "একটি প্রযুক্তিগত ত্রুটি হয়েছে। অনুগ্রহ করে আপনার ইন্টারনেট সংযোগ বা API Key যাচাই করুন।";
+    return "একটি প্রযুক্তিগত ত্রুটি হয়েছে। অনুগ্রহ করে আপনার API Key যাচাই করুন।";
   }
 };
 
 export const generateErrorTags = async (errorDescription: string): Promise<string[]> => {
-    // Return mock tags in demo mode
     if (isDemoMode || !ai) {
-        return ['Demo', 'System', 'No-API'];
+        return ['Demo', 'System', 'Deployed'];
     }
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Analyze this error and give me 3 short technical tags (e.g., Python, SyntaxError, Database) separated by commas. Return ONLY the tags. Error: ${errorDescription}`,
+            contents: `Analyze this error and give me 3 short technical tags. Return ONLY tags. Error: ${errorDescription}`,
         });
         const text = response.text || "";
         return text.split(',').map(t => t.trim()).slice(0, 3);
