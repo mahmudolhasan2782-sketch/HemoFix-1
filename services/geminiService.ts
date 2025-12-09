@@ -1,23 +1,30 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
 // SAFE API KEY RETRIEVAL
-// This function prevents the "process is not defined" error which causes white screens
 const getApiKey = (): string | undefined => {
   try {
-    // 1. Try Vite environment variables (Common for React on Vercel)
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+    // 1. Try Vite environment variables (Standard for this setup)
+    // We use a safe check to avoid ReferenceErrors if import.meta is somehow not supported
+    try {
       // @ts-ignore
-      return import.meta.env.VITE_API_KEY;
+      if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
+        // @ts-ignore
+        return import.meta.env.VITE_API_KEY;
+      }
+    } catch (e) {
+      // Ignore import.meta errors
     }
     
-    // 2. Try Standard Process environment (Create React App / Next.js)
-    if (typeof process !== 'undefined' && process.env) {
-       // Check for standard names
-       return process.env.REACT_APP_API_KEY || process.env.API_KEY;
+    // 2. Try Standard Process environment (Node/Next.js/CRA)
+    // Checking typeof process is essential to avoid "process is not defined" in browser
+    if (typeof process !== 'undefined') {
+       // @ts-ignore
+       if (process.env) {
+         // @ts-ignore
+         return process.env.REACT_APP_API_KEY || process.env.API_KEY || process.env.VITE_API_KEY;
+       }
     }
   } catch (e) {
-    // If accessing these fails, just return undefined (Demo Mode)
     console.warn("Environment access failed, switching to Demo Mode");
   }
   return undefined;
@@ -35,7 +42,6 @@ if (!isDemoMode && apiKey) {
     ai = new GoogleGenAI({ apiKey: apiKey });
   } catch (error) {
     console.error("Failed to initialize Gemini Client:", error);
-    // Fallback to demo mode if initialization fails
   }
 }
 
@@ -76,12 +82,12 @@ export const sendMessageToGemini = async (
 **কিভাবে লাইভ করবেন?**
 1. Vercel ড্যাশবোর্ডে যান।
 2. Settings > Environment Variables-এ যান।
-3. **Key:** \`VITE_API_KEY\` (অথবা \`REACT_APP_API_KEY\`)
+3. **Key:** \`VITE_API_KEY\`
 4. **Value:** [আপনার Gemini API Key]
 5. Save করে নতুন ডিপ্লয়মেন্ট দিন।
 
 **নমুনা উত্তর (ডেমো):**
-আমি আপনার ইনপুট পেয়েছি: "${prompt.substring(0, 20)}..."। এটি ঠিক করার জন্য কোডটি চেক করুন।`;
+আমি আপনার ইনপুট পেয়েছি: "${prompt.substring(0, 20)}..."। কোডটি চেক করছি...`;
   }
 
   try {
